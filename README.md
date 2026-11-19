@@ -1,7 +1,7 @@
 # Práctica: Spark Standalone
 
 **Materia:** Manejo Masivo de Datos — Universidad Politécnica de Querétaro
-**Alumno:** _Nombre completo — Matrícula_
+**Alumno:** _Germán Eduardo Ruiz Zúñiga — 125053802_
 
 Esta práctica es una introducción a **Apache Spark**, una herramienta que sirve para procesar muchos datos de forma rápida. Spark reparte el trabajo en pedazos y los procesa al mismo tiempo, en lugar de uno por uno, y guarda los datos en la memoria de la computadora mientras trabaja, lo que lo hace mucho más rápido que otras herramientas.
 
