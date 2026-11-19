@@ -81,6 +81,53 @@ Antes del proyecto se resolvieron 7 ejercicios cortos:
 
 ---
 
+## Preguntas de reflexión
+
+### 1. Eficiencia: ¿Por qué es importante hacer split() una sola vez por línea? ¿Cuánto tiempo ahorrarías con 1 millón de líneas?
+
+Cada split recorre la cadena y crea una lista nueva en memoria. Si se hace dos o tres veces por línea, pues ese trabajo se multiplica sin aportar nada, porque el resultado es el mismo.
+
+Con muchas líneas, hacer split dos veces implica hacer el doble de trabajo , y con tres splits, el triple. Hacerlo una sola vez ahorra aproximadamente la mitad del tiempo del parseo, además reduce la memoria temporal y tambien el trabajo del recolector de basura.
+
+### 2. Particionamiento: ¿Cuántas particiones tiene tu RDD? ¿Cómo afecta esto al rendimiento? ¿Qué pasaría si tuvieras solo 1 partición?
+
+Depende de cómo se crea el RDD. Con el parallelizre sin indicar particiones se obtuvieron 12 (una por núcleo; se ve en los 12/12 tasks de Spark UI). Con textFile sobre archivos pequeños, Spark crea por defecto 2 particiones (por eso el stage de reduceByKey muestra 2/2 tasks). Se puede comprobar con `rdd.getNumPartitions()`.
+
+Cada partición es una tarea que puede ejecutarse en paralelo, así que más particiones aprovechan más núcleos, hasta cierto límite: demasiadas particiones pequeñas agregan sobrecarga de planificación.
+
+Con 1 sola partición no hay paralelismo: todo se procesa en una tarea y un solo núcleo, como un programa secuencial, y se pierde la ventaja de Spark.
+
+### 3. Lazy Evaluation: ¿En qué momento se ejecutaron realmente las transformaciones? ¿Qué ventajas tiene este modelo?
+
+Las transformaciones solo construyen un plan de ejecución. Se ejecutaron hasta que se llamó a una acción, como las de `count()`, `take()`, `collect()`, `sum()`, `first()` o `saveAsTextFile()`.
+
+Spark UI lo confirma: cada job lleva el nombre de una acción, nunca de una transformación.
+
+**Ventajas:** Spark ve el plan completo y lo optimiza; encadena map y filter en un mismo stage sin crear resultados intermedios, no calcula lo que nunca se usa y puede reconstruir particiones perdidas a partir del linaje, lo que le da tolerancia a fallos.
+
+### 4. Memoria: ¿Qué pasaría si intentaras hacer collect() en un RDD de 10GB? ¿Cómo evitarías este problema?
+
+collect trae todos los datos al Driver. Con 10 GB y un Driver configurado con 1 o 2 GB, se produciría un error de memoria (OutOfMemoryError / Py4JJavaError) y la aplicación fallaría.
+
+Para evitarlo: usar `take(n)` para ver una muestra; usar `count()` u otras agregaciones (`reduceByKey`) y traer solo el resultado reducido; o guardar el resultado en disco o HDFS con `saveAsTextFile()` sin pasar por ese Driver como tal.
+
+### 5. Optimización: Si tuvieras que procesar 100x más datos, ¿qué cambiarías en tu código? ¿Usarías más particiones? ¿Cachearías algún RDD?
+
+**Más particiones:** sí usaría más, con los comandos de: `sc.textFile(ruta, minPartitions)` o `repartition()`, para repartir la carga entre más núcleos o nodos.
+
+**Cache:** Si, ya que algunas variables se reutilizan en los diversos pasos, y sin cache cada acción vuelve a leer y parsear el archivo desde el inicio. Cachearlos evita repetir ese trabajo.
+
+**Que cambiaria:** Se podrian agregar calculos de máximo, mínimo y promedio en un solo aggregateByKey en lugar de tres recorridos. Migraría quizá a DataFrames, o aumentar la memoria de los executors.
+
+### 6. HDFS vs Local: ¿Cuáles son las ventajas de usar HDFS en lugar de archivos locales para este análisis?
+
+- **Distribución:** HDFS divide los archivos en bloques repartidos entre nodos, y cada bloque puede procesarse en paralelo como una partición.
+- **Tolerancia a fallos:** los bloques están replicados; si un nodo falla, Spark lee otra réplica automáticamente.
+- **Localidad de datos:** Spark envía las tareas a los nodos donde ya están los datos, lo que reduce el tráfico de red.
+- **Acceso compartido y escalabilidad:** con `file://`, el archivo tendría que existir en la misma ruta en cada nodo del clúster; HDFS ofrece un único sistema de archivos accesible para todos y escala a volúmenes que no caben en un solo equipo.
+
+---
+
 ## Cómo replicar
 
 Estos son los pasos que se siguieron para preparar el entorno, desde abrir Docker hasta crear la libreta de trabajo. Se hicieron en **Windows**.
